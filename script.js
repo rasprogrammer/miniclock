@@ -1,113 +1,143 @@
-const clock = document.getElementById('clock');
+const clockContainer = document.getElementById('clock-container');
 
 let timeInterval = null;
+let stopwatchInterval = null;
+let timerInterval = null;
 
-function updateClock(menuName) {
-    if (menuName.toLowerCase() == 'clock') {
-        clock.innerHTML = `Please wait...`;
-        timeInterval = setInterval(() => {
-            const { hours, minutes, seconds } = getCurrentTime();
-            clock.innerHTML = `${hours}:${minutes}:${seconds}`;
-        }, 1000);
-    } else if (menuName.toLowerCase() == 'stopwatch') {
-        if (timeInterval) {
-            clearInterval(timeInterval);
-        }
-        clock.innerHTML = `<div class="stopwatch-controls">
-            <button id="startStopwatch">Start</button>
-            <button id="stopStopwatch">Stop</button>
-            <button id="resetStopwatch">Reset</button>
-            </div>`;
-    } else {
-        if (timeInterval) {
-            clearInterval(timeInterval);
-        }
-        clock.innerHTML = `<span class="menu">${menuName}</span>`;
-    }
+let stopWatchTime = '0.00';
+
+// ===== Utility Functions ===== //
+function updateClockContainer(htmlContent) {
+    clockContainer.innerHTML = htmlContent;
+}
+
+function clearAllIntervals() {
+    clearInterval(timeInterval);
+    // clearInterval(stopwatchInterval);
+    clearInterval(timerInterval);
+    timeInterval = timerInterval = null;
 }
 
 function getCurrentTime() {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    return { hours, minutes, seconds };
+    return {
+        hours: String(now.getHours()).padStart(2, '0'),
+        minutes: String(now.getMinutes()).padStart(2, '0'),
+        seconds: String(now.getSeconds()).padStart(2, '0')
+    };
 }
 
-const menu = document.getElementsByClassName('nav-link');
+// ===== Clock Menu Change ===== //
+function changeClockMenu(menuName) {
+    const name = menuName.toLowerCase();
+    clearAllIntervals();
 
-for (let i = 0; i < menu.length; i++) {
-    menu[i].addEventListener('click', function(e) {
+    if (name === 'clock') {
+        updateClockContainer(`Please wait...`);
+        timeInterval = setInterval(() => {
+            const { hours, minutes, seconds } = getCurrentTime();
+            updateClockContainer(`${hours}:${minutes}:${seconds}`);
+        }, 1000);
+    } else if (name === 'stopwatch') {
+        updateClockContainer(generateStopwatchUI());
+    } else {
+        updateClockContainer(`<span class="menu">${menuName}</span>`);
+    }
+}
+
+// ===== Menu Navigation Event Listener ===== //
+document.querySelectorAll('.nav-link').forEach(menuItem => {
+    menuItem.addEventListener('click', (e) => {
         const menuText = e.target.dataset.menu;
-        Array.from(menu).forEach(element => {
-            if (element.dataset.menu === menuText) {
-                element.classList.add('active');
-            } else {
-                element.classList.remove('active');
-            }
+        document.querySelectorAll('.nav-link').forEach(el => {
+            el.classList.toggle('active', el.dataset.menu === menuText);
         });
-        updateClock(menuText);
+        changeClockMenu(menuText);
     });
-}
+});
 
-// Initial click to set the default active menu
+// ===== Load Default Menu on Page Load ===== //
 document.addEventListener('DOMContentLoaded', () => {
     const activeMenu = document.querySelector('.nav-link.active');
     if (activeMenu) {
-        updateClock(activeMenu.dataset.menu);
+        changeClockMenu(activeMenu.dataset.menu);
     }
 });
 
-// stopwatch functionality
-let stopwatchInterval = null;
-function startStopwatch() {
-    let seconds = 0;
-    let minutes = 0;
-    let hours = 0;
+// ===== Stopwatch ===== //
+function generateStopwatchUI() {
+    return `
+        <div class="stopwatch-display p-3">${stopWatchTime}</div>
+        <div class="stopwatch-controls">
+            <button class="btn btn-primary" id="startStopwatch">Start</button>
+            <button class="btn btn-danger" id="stopStopwatch">Stop</button>
+            <button class="btn btn-success" id="resetStopwatch">Reset</button>
+        </div>
+    `;
+}
 
-    stopwatchInterval = setInterval(() => {
-        seconds++;
-        if (seconds >= 60) {
-            seconds = 0;
-            minutes++;
+function stopwatch() {
+    let milliseconds = 0, seconds = 0, minutes = 0, hours = 0;
+
+    function updateDisplay() {
+        const display = document.querySelector('.stopwatch-display');
+        if (display) {
+            display.innerHTML = formatStopwatchTime({ hours, minutes, seconds, milliseconds });
         }
-        if (minutes >= 60) {
-            minutes = 0;
-            hours++;
+    }
+
+    function storeStopwatchTime() {
+        stopWatchTime = formatStopwatchTime({ hours, minutes, seconds, milliseconds });
+    }
+    
+    return {
+        start: () => {
+            if (stopwatchInterval) return;
+            stopwatchInterval = setInterval(() => {
+                milliseconds++;
+                if (milliseconds >= 100) { milliseconds = 0; seconds++; }
+                if (seconds >= 60) { seconds = 0; minutes++; }
+                if (minutes >= 60) { minutes = 0; hours++; }
+                updateDisplay();
+            }, 10);
+        },
+        stop: () => {
+            clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+            storeStopwatchTime();
+        },
+        reset: () => {
+            clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+            milliseconds = seconds = minutes = hours = 0;
+            updateDisplay();
+            storeStopwatchTime();
         }
-        clock.innerHTML = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }, 1000);
+    };
 }
 
-function stopStopwatch() {
-    if (stopwatchInterval) {
-        clearInterval(stopwatchInterval);
-        stopwatchInterval = null;
-    }
-    clock.innerHTML = `<span class="menu">Stopwatch</span>`;
-}
-
-function resetStopwatch() {
-    if (stopwatchInterval) {
-        clearInterval(stopwatchInterval);
-        stopwatchInterval = null;
-    }
-    clock.innerHTML = `<span class="menu">Stopwatch</span>`;
-}
-
-function toggleStopwatch(action) {
-    if (action === 'start') {
-        startStopwatch();
-    } else if (action === 'stop') {
-        stopStopwatch();
-    } else if (action === 'reset') {
-        resetStopwatch();
+function formatStopwatchTime({ hours, minutes, seconds, milliseconds }) {
+    if (hours) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
+    } else if (minutes) {
+        return `${minutes}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
+    } else {
+        return `${seconds}.${String(milliseconds).padStart(2, '0')}`;
     }
 }
 
-// Add event listeners for stopwatch buttons
-document.getElementById('startStopwatch')?.addEventListener('click', () => toggleStopwatch('start'));
-document.getElementById('stopStopwatch')?.addEventListener('click', () => toggleStopwatch('stop'));
-document.getElementById('resetStopwatch')?.addEventListener('click', () => toggleStopwatch('reset'));
-
+// Stopwatch Controller
+const stopwatchControl = stopwatch();
+clockContainer.addEventListener('click', (e) => {
+    switch (e.target.id) {
+        case 'startStopwatch':
+            stopwatchControl.start();
+            break;
+        case 'stopStopwatch':
+            stopwatchControl.stop();
+            break;
+        case 'resetStopwatch':
+            stopwatchControl.reset();
+            break;
+    }
+});
